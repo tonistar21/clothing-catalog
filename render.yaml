@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: clothing-catalog
+    runtime: docker
+    plan: free
+    envVars:
+      - key: APP_KEY
+        sync: false
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_URL
+        value: https://clothing-catalog.onrender.com
+      - key: FILESYSTEM_DISK
+        value: public
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: 5432
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
