@@ -1,41 +1,25 @@
-# Используем официальный PHP образ
-FROM php:8.2-fpm
-
-# Устанавливаем зависимости системы
-RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    zip \
-    unzip \
-    libpq-dev \
-    libzip-dev \
-    nodejs \
-    npm
-
-# PHP расширения
-RUN docker-php-ext-install pdo pdo_pgsql zip
-
-# Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-WORKDIR /var/www/html
-
-# Копируем проект
+FROM composer:2 AS composer
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress
 COPY . .
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress
 
-# Устанавливаем backend зависимости
-RUN composer install --no-dev --optimize-autoloader
-
-# Устанавливаем frontend зависимости
+FROM node:20 AS node
+WORKDIR /app
+COPY package*.json vite.config.* postcss.config.* tailwind.config.* ./
 RUN npm install
-
-# Собираем Vite ассеты
+COPY resources ./resources
+COPY public ./public
 RUN npm run build
 
-# Чистим кеш
-RUN php artisan config:clear || true
-RUN php artisan route:clear || true
-
-# На старте — прогоняем миграции и запускаем сервер
-CMD php artisan migrate --force || true && \
-    php artisan serve --host=0.0.0.0 --port=10000
+FROM php:8.2-cli
+WORKDIR /var/www/html
+RUN apt-get update && apt-get install -y git unzip libpq-dev && docker-php-ext-install pdo pdo_pgsql && rm -rf /var/lib/apt/lists/*
+COPY . .
+COPY --from=composer /app/vendor ./vendor
+COPY --from=node /app/public/build ./public/build
+RUN chmod -R 775 storage bootstrap/cache
+ENV PORT=10000
+CMD php artisan config:cache && php artisan route:cache && php artisan serve --host=0.0.0.0 --port=${PORT}
+RUN php artisan route:clear || trueQ
