@@ -1,36 +1,36 @@
-# --- Base PHP image ---
 FROM php:8.2-fpm
 
-# --- Install system dependencies ---
+# Системные зависимости
 RUN apt-get update && apt-get install -y \
     git \
-    unzip \
-    zip \
     curl \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
+    zip \
+    unzip \
     libpq-dev \
-    && docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd
+    libzip-dev
 
-# --- Install Composer ---
-COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
+# Установить расширения PHP
+RUN docker-php-ext-install pdo pdo_pgsql zip
 
-# --- App directory ---
+# Установка Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Рабочая директория
 WORKDIR /var/www/html
 
-# --- Copy project ---
+# Копируем проект
 COPY . .
 
-# --- Install Dependencies ---
+# Устанавливаем зависимости Laravel
 RUN composer install --no-dev --optimize-autoloader
 
-# --- Storage ---
-RUN php artisan storage:link || true
+# Генерируем ключ, если нет
+RUN php artisan key:generate --force
 
-# --- Permissions ---
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+# Оптимизация Laravel
+RUN php artisan config:clear && php artisan route:clear
 
-# --- Expose and run Laravel server ---
-EXPOSE 8080
-CMD php artisan serve --host 0.0.0.0 --port 8080
+# -----------------------------
+# 🔥 ВАЖНО: запуск миграций при старте
+# -----------------------------
+CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=10000
