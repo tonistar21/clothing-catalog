@@ -1,13 +1,16 @@
+# Используем официальный PHP образ
 FROM php:8.2-fpm
 
-# Системные зависимости
+# Устанавливаем зависимости системы
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     zip \
     unzip \
     libpq-dev \
-    libzip-dev
+    libzip-dev \
+    nodejs \
+    npm
 
 # PHP расширения
 RUN docker-php-ext-install pdo pdo_pgsql zip
@@ -17,17 +20,22 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
+# Копируем проект
 COPY . .
 
-# Установка зависимостей
+# Устанавливаем backend зависимости
 RUN composer install --no-dev --optimize-autoloader
 
-# Очистка кешей (но не key:generate)
+# Устанавливаем frontend зависимости
+RUN npm install
+
+# Собираем Vite ассеты
+RUN npm run build
+
+# Чистим кеш
 RUN php artisan config:clear || true
 RUN php artisan route:clear || true
 
-# -----------------------------
-# Теперь миграции выполняем ТОЛЬКО на старте контейнера
-# -----------------------------
+# На старте — прогоняем миграции и запускаем сервер
 CMD php artisan migrate --force || true && \
     php artisan serve --host=0.0.0.0 --port=10000
